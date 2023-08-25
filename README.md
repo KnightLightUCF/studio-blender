@@ -1,3 +1,5 @@
+[![Build Program](https://github.com/KnightLightUCF/studio-blender/actions/workflows/build.yml/badge.svg?nocache=1)](https://github.com/KnightLightUCF/studio-blender/actions/workflows/build.yml)
+
 Skybrush Studio for Blender
 ===========================
 
