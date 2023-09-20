@@ -352,7 +352,7 @@ class Storyboard(PropertyGroup, ListMixin):
         formation: Optional[Collection] = None,
         select: bool = False,
         context: Optional[Context] = None,
-    ) -> StoryboardEntry:
+    ) -> Optional[StoryboardEntry]:
         """Appends a new entry to the end of the storyboard.
 
         Parameters:
@@ -365,6 +365,9 @@ class Storyboard(PropertyGroup, ListMixin):
                 default
             formation: the formation that the newly added entry should refer to
             select: whether to select the newly added entry after it was created
+
+        Returns:
+            the new entry created or None if it cannot be found after creation
         """
         if name is None:
             if formation is None:
@@ -624,7 +627,7 @@ class Storyboard(PropertyGroup, ListMixin):
         else:
             return None
 
-    def validate_and_sort_entries(self) -> None:
+    def validate_and_sort_entries(self) -> List[StoryboardEntry]:
         """Validates the entries in the storyboard and sorts them by start time,
         keeping the active entry index point at the same entry as before.
 

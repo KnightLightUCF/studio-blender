@@ -152,6 +152,7 @@ class TakeoffOperator(StoryboardOperator):
             select=True,
             context=context,
         )
+        assert entry is not None
         entry.transition_type = "MANUAL"
 
         # Set up the custom departure delays for the drones
@@ -234,7 +235,7 @@ def create_helper_formation_for_takeoff_and_landing(
 
     num_groups = max(groups) + 1 if groups else 0
 
-    # Prepare the points of the target formation to take off to
+    # Prepare the points of the target formation to take off to or to return to
     target = [
         (x, y, base_altitude + (num_groups - group - 1) * layer_height)
         for (x, y, _), group in zip(source, groups)
