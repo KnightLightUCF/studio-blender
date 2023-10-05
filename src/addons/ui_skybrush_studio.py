@@ -70,8 +70,11 @@ from sbstudio.plugin.operators import (
     CreateNewStoryboardEntryOperator,
     CreateLightEffectOperator,
     CreateTakeoffGridOperator,
+    DACExportOperator,
     DeselectFormationOperator,
     DetachMaterialsFromDroneTemplateOperator,
+    DrotekExportOperator,
+    DSSPathExportOperator,
     DuplicateLightEffectOperator,
     FixConstraintOrderingOperator,
     AddMarkersFromQRCodeOperator,
@@ -83,6 +86,7 @@ from sbstudio.plugin.operators import (
     MoveStoryboardEntryUpOperator,
     PrepareSceneOperator,
     RecalculateTransitionsOperator,
+    RefreshFileFormatsOperator,
     RemoveFormationOperator,
     RemoveLightEffectOperator,
     RemoveScheduleOverrideEntryOperator,
@@ -192,6 +196,9 @@ operators = (
     SkybrushExportOperator,
     SkybrushCSVExportOperator,
     SkybrushPDFExportOperator,
+    DACExportOperator,
+    DrotekExportOperator,
+    DSSPathExportOperator,
     UseSelectedVertexGroupForFormationOperator,
     GetFormationStatisticsOperator,
     TakeoffOperator,
@@ -200,6 +207,7 @@ operators = (
     AddMarkersFromStaticCSVOperator,
     AddMarkersFromZippedCSVOperator,
     AddMarkersFromQRCodeOperator,
+    RefreshFileFormatsOperator,
 )
 
 #: List widgets in this addon.

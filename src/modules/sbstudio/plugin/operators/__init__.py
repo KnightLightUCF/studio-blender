@@ -1,5 +1,6 @@
 """Blender operators registered by Skybrush Studio for Blender."""
 
+from .add_markers_from_qr_code import AddMarkersFromQRCodeOperator
 from .add_markers_from_static_csv import AddMarkersFromStaticCSVOperator
 from .add_markers_from_zipped_csv import AddMarkersFromZippedCSVOperator
 from .append_formation_to_storyboard import AppendFormationToStoryboardOperator
@@ -12,10 +13,12 @@ from .create_takeoff_grid import CreateTakeoffGridOperator
 from .detach_materials_from_template import DetachMaterialsFromDroneTemplateOperator
 from .duplicate_light_effect import DuplicateLightEffectOperator
 from .export_to_csv import SkybrushCSVExportOperator
+from .export_to_dac import DACExportOperator
+from .export_to_dss import DSSPathExportOperator
+from .export_to_drotek import DrotekExportOperator
 from .export_to_skyc import SkybrushExportOperator
 from .export_to_pdf import SkybrushPDFExportOperator
 from .fix_constraint_ordering import FixConstraintOrderingOperator
-from .add_markers_from_qr_code import AddMarkersFromQRCodeOperator
 from .get_formation_stats import GetFormationStatisticsOperator
 from .land import LandOperator
 from .move_light_effect import (
@@ -28,6 +31,7 @@ from .move_storyboard_entry import (
 )
 from .prepare import PrepareSceneOperator
 from .recalculate_transitions import RecalculateTransitionsOperator
+from .refresh_file_formats import RefreshFileFormatsOperator
 from .remove_formation import RemoveFormationOperator
 from .remove_light_effect import RemoveLightEffectOperator
 from .remove_schedule_override_entry import RemoveScheduleOverrideEntryOperator
@@ -53,8 +57,11 @@ __all__ = (
     "CreateNewScheduleOverrideEntryOperator",
     "CreateNewStoryboardEntryOperator",
     "CreateTakeoffGridOperator",
+    "DACExportOperator",
     "DeselectFormationOperator",
     "DetachMaterialsFromDroneTemplateOperator",
+    "DrotekExportOperator",
+    "DSSPathExportOperator",
     "DuplicateLightEffectOperator",
     "FixConstraintOrderingOperator",
     "AddMarkersFromQRCodeOperator",
@@ -66,6 +73,7 @@ __all__ = (
     "MoveStoryboardEntryUpOperator",
     "PrepareSceneOperator",
     "RecalculateTransitionsOperator",
+    "RefreshFileFormatsOperator",
     "RemoveScheduleOverrideEntryOperator",
     "RemoveFormationOperator",
     "RemoveLightEffectOperator",
