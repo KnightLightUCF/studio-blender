@@ -1,7 +1,11 @@
 import bpy
 import os
 
-from typing import Any, Dict
+from abc import abstractmethod
+from dataclasses import dataclass
+from numpy import array, floating
+from numpy.typing import NDArray
+from typing import Any, Dict, Optional
 
 from bpy.props import BoolProperty
 from bpy.types import Collection, Operator
@@ -9,8 +13,13 @@ from bpy_extras.io_utils import ExportHelper
 
 from sbstudio.model.file_formats import FileFormat
 from sbstudio.plugin.errors import StoryboardValidationError
+from sbstudio.plugin.model.formation import (
+    add_points_to_formation,
+    get_markers_from_formation,
+)
 from sbstudio.plugin.props.frame_range import FrameRangeProperty
 from sbstudio.plugin.selection import select_only
+from sbstudio.plugin.selection import Collections
 
 
 class FormationOperator(Operator):
@@ -177,3 +186,111 @@ class ExportOperator(Operator, ExportHelper):
 
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
+
+
+@dataclass
+class PointsAndColors:
+    points: NDArray[floating]
+    """The points to create in a static marker creation operation, in a NumPy
+    array where each row is a point.
+    """
+
+    colors: Optional[NDArray[floating]] = None
+    """Optional colors corresponding to the points in a marker creation
+    operation, in a NumPy array where the i-th row is the color of the i-th
+    point in RGBA space; color components must be specified in the range [0; 1].
+    """
+
+
+class StaticMarkerCreationOperator(FormationOperator):
+    """Base class for operators that create a set of markers for a formation,
+    optionally extended with a list of colors corresponding to the points.
+    """
+
+    def execute_on_formation(self, formation, context):
+        # Construct the point set
+        try:
+            points_and_colors = self._create_points(context)
+        except RuntimeError as error:
+            self.report({"ERROR"}, str(error))
+            return {"CANCELLED"}
+
+        points = points_and_colors.points
+        colors = points_and_colors.colors
+
+        if len(points) < 1:
+            self.report({"ERROR"}, "Formation would be empty, nothing was created")
+            return {"CANCELLED"}
+
+        # Align the center of the bounding box of the point set to the origin
+        mins, maxs = points.min(axis=0), points.max(axis=0)
+        points -= (maxs + mins) / 2
+
+        # Move the origin of the point set to the 3D cursor
+        points += array(context.scene.cursor.location, dtype=float)
+
+        # Create the markers
+        add_points_to_formation(formation, points.tolist())
+
+        # Decide whether we should import the colors of the markers as well
+        should_import_colors = (
+            bool(getattr(self, "import_colors", True)) and colors is not None
+        )
+
+        # Add a light effect containing the colors of the markers if needed
+        if should_import_colors:
+            # try to figure out the start frame of this formation
+            storyboard_entry = (
+                context.scene.skybrush.storyboard.get_first_entry_for_formation(
+                    formation
+                )
+            )
+            frame_start = (
+                storyboard_entry.frame_start
+                if storyboard_entry
+                else context.scene.frame_start
+            )
+            duration = storyboard_entry.duration if storyboard_entry else 1
+
+            # add a light effect from the imported colors
+            light_effects = context.scene.skybrush.light_effects
+            if light_effects:
+                light_effects.append_new_entry(
+                    name=formation.name,
+                    frame_start=frame_start,
+                    duration=duration,
+                    select=True,
+                )
+                light_effect = light_effects.active_entry
+                light_effect.output = "TEMPORAL"
+                light_effect.output_y = "INDEXED_BY_FORMATION"
+                light_effect.type = "IMAGE"
+                image = light_effect.create_color_image(
+                    name="Image for light effect '{}'".format(formation.name),
+                    width=1,
+                    height=len(colors),
+                )
+                image.pixels.foreach_set(list(colors.flat))
+                image.pack()
+
+        return {"FINISHED"}
+
+    @abstractmethod
+    def _create_points(self, context) -> PointsAndColors:
+        """Creates the points where the markers should be placed."""
+        raise NotImplementedError
+
+    def _propose_marker_count(self, context) -> int:
+        """Calculates how many markers we need to add to the currently selected
+        formation in order to make it have exactly the same number of markers
+        as the number of drones in the project.
+        """
+        drones = Collections.find_drones(create=False)
+        num_drones = len(drones.objects) if drones else 0
+        if num_drones > 0:
+            num_existing_markers = len(
+                get_markers_from_formation(context.scene.skybrush.formations.selected)
+            )
+        else:
+            num_existing_markers = 0
+        return max(0, num_drones - num_existing_markers)

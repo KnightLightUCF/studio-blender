@@ -8,7 +8,7 @@ from typing import Dict, List
 from zipfile import ZipFile
 
 from bpy.path import ensure_ext
-from bpy.props import StringProperty
+from bpy.props import BoolProperty, StringProperty
 from bpy_extras.io_utils import ImportHelper
 
 from sbstudio.model.color import Color4D
@@ -47,7 +47,13 @@ class AddMarkersFromZippedCSVOperator(FormationOperator, ImportHelper):
 
     bl_idname = "skybrush.add_markers_from_zipped_csv"
     bl_label = "Import Skybrush zipped CSV"
-    bl_options = {"REGISTER"}
+    bl_options = {"REGISTER", "UNDO"}
+
+    update_duration = BoolProperty(
+        name="Update duration of formation",
+        default=True,
+        description="Update the duration of the storyboard entry based on animation length",
+    )
 
     # List of file extensions that correspond to Skybrush CSV files
     filter_glob = StringProperty(default="*.zip", options={"HIDDEN"})
@@ -83,6 +89,13 @@ class AddMarkersFromZippedCSVOperator(FormationOperator, ImportHelper):
             for trajectory in trajectories
         ]
         markers = add_points_to_formation(formation, first_points)
+
+        # update storyboard duration based on animation data
+        if self.update_duration and storyboard_entry:
+            duration = (
+                int(max(trajectory.duration for trajectory in trajectories) * fps) + 1
+            )
+            storyboard_entry.duration = duration
 
         # create animation action for each point in the formation
         for trajectory, marker in zip(trajectories, markers):
@@ -126,6 +139,46 @@ class AddMarkersFromZippedCSVOperator(FormationOperator, ImportHelper):
             # Commit the insertions that we've made in "fast" mode
             for f_curve in f_curves:
                 f_curve.update()
+
+        # store light program as a light effect with color image
+        light_effects = context.scene.skybrush.light_effects
+        if light_effects:
+            light_programs = [item.light_program for item in imported_data.values()]
+            duration = (
+                int(
+                    (light_programs[0].colors[-1].t - light_programs[0].colors[0].t)
+                    * fps
+                )
+                + 1
+            )
+            light_effects.append_new_entry(
+                name=formation.name,
+                frame_start=frame_start,
+                duration=duration,
+                select=True,
+            )
+            light_effect = light_effects.active_entry
+            light_effect.type = "IMAGE"
+            light_effect.output = "TEMPORAL"
+            light_effect.output_y = "INDEXED_BY_FORMATION"
+            image = light_effect.create_color_image(
+                name="Image for light effect '{}'".format(formation.name),
+                width=duration,
+                height=len(light_programs),
+            )
+            pixels = []
+            for light_program in light_programs:
+                color = light_program.colors[0]
+                t0 = color.t
+                j_last = 0
+                for next_color in light_program.colors[1:]:
+                    j_next = int((next_color.t - t0) * fps)
+                    pixels.extend(list(color.as_vector()) * (j_next - j_last))
+                    j_last = j_next
+                    color = next_color
+                pixels.extend(list(color.as_vector()))
+            image.pixels.foreach_set(pixels)
+            image.pack()
 
         return {"FINISHED"}
 

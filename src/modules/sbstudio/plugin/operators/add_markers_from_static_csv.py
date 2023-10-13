@@ -1,19 +1,15 @@
 import csv
 import logging
 
-from dataclasses import dataclass
-from typing import Dict
+from numpy import array, zeros
+from numpy.typing import NDArray
+from typing import Dict, Tuple
 
 from bpy.path import ensure_ext
-from bpy.props import StringProperty
+from bpy.props import BoolProperty, StringProperty
 from bpy_extras.io_utils import ImportHelper
 
-from sbstudio.model.color import Color3D
-from sbstudio.model.point import Point3D
-
-from sbstudio.plugin.model.formation import add_points_to_formation
-
-from .base import FormationOperator
+from .base import StaticMarkerCreationOperator, PointsAndColors
 
 __all__ = ("AddMarkersFromStaticCSVOperator",)
 
@@ -24,13 +20,7 @@ log = logging.getLogger(__name__)
 #############################################################################
 
 
-@dataclass
-class ImportedData:
-    position: Point3D
-    color: Color3D
-
-
-class AddMarkersFromStaticCSVOperator(FormationOperator, ImportHelper):
+class AddMarkersFromStaticCSVOperator(StaticMarkerCreationOperator, ImportHelper):
     """Adds markers from a Skybrush-compatible static .csv file (containing a
     single formation snapshot) to the currently selected formation.
     """
@@ -39,35 +29,38 @@ class AddMarkersFromStaticCSVOperator(FormationOperator, ImportHelper):
     bl_label = "Import Skybrush static CSV"
     bl_options = {"REGISTER"}
 
+    import_colors = BoolProperty(
+        name="Import colors",
+        description="Import colors from the CSV file into a light effect",
+        default=True,
+    )
+
     # List of file extensions that correspond to Skybrush static CSV files
     filter_glob = StringProperty(default="*.csv", options={"HIDDEN"})
     filename_ext = ".csv"
-
-    def execute_on_formation(self, formation, context):
-        filepath = ensure_ext(self.filepath, self.filename_ext)
-
-        # get positions and colors from a .csv file
-        try:
-            imported_data = parse_static_csv_zip(filepath, context)
-        except RuntimeError as error:
-            self.report({"ERROR"}, str(error))
-            return {"CANCELLED"}
-
-        # create new markers for the points
-        points = [item.position.as_vector() for item in imported_data.values()]
-        if not points:
-            self.report({"ERROR"}, "Formation would be empty, nothing was created")
-        else:
-            add_points_to_formation(formation, points)
-
-        return {"FINISHED"}
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 
+    def _create_points(self, context) -> PointsAndColors:
+        filepath = ensure_ext(self.filepath, self.filename_ext)
+        point_color_pairs = parse_static_csv_zip(filepath)
 
-def parse_static_csv_zip(filename: str, context) -> Dict[str, ImportedData]:
+        points = zeros((len(point_color_pairs), 3), dtype=float)
+        colors = zeros((len(point_color_pairs), 3), dtype=float) + 1
+
+        for index, (p, c) in enumerate(point_color_pairs.values()):
+            points[index, :] = p
+            colors[index, :] = c / 255
+
+        return PointsAndColors(points, colors)
+
+
+Item = Tuple[NDArray[float], NDArray[int]]
+
+
+def parse_static_csv_zip(filename: str) -> Dict[str, Item]:
     """Parse a Skybrush static .csv file (containing a list of static positions
     and colors)
 
@@ -82,20 +75,21 @@ def parse_static_csv_zip(filename: str, context) -> Dict[str, ImportedData]:
     Raises:
         RuntimeError: on parse errors
     """
-    result: Dict[str, ImportedData] = {}
+    result: Dict[str, Item] = {}
     header_passed: bool = False
 
     with open(filename, "r") as csv_file:
-        lines = list(csv_file)
-        for row in csv.reader(lines, delimiter=","):
+        for row in csv.reader(csv_file, delimiter=","):
             # skip empty lines
             if not row:
                 continue
+
             # skip possible header line (starting with "Name")
             if not header_passed:
                 header_passed = True
                 if row[0].lower().startswith("name"):
                     continue
+
             # parse line and check for errors
             try:
                 name = row[0]
@@ -115,8 +109,8 @@ def parse_static_csv_zip(filename: str, context) -> Dict[str, ImportedData]:
                 raise RuntimeError(f"Duplicate object name in input CSV file: {name}")
 
             # store position and color entry
-            data = ImportedData(position=Point3D(x, y, z), color=Color3D(r, g, b))
-            print(data)
-            result[name] = data
+            result[name] = array((x, y, z), dtype=float), array(
+                (r, g, b, 255), dtype=int
+            )
 
     return result

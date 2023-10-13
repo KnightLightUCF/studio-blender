@@ -2,7 +2,7 @@ bl_info = {
     "name": "Skybrush Studio",
     "author": "CollMot Robotics Ltd.",
     "description": "Extends Blender with UI components for drone show design",
-    "version": (2, 8, 0),
+    "version": (2, 9, 0),
     "blender": (2, 93, 0),
     "category": "Interface",
     "doc_url": "https://doc.collmot.com/public/skybrush-studio-for-blender/latest/",
@@ -62,6 +62,7 @@ from sbstudio.plugin.model import (
 )
 from sbstudio.plugin.operators import (
     AddMarkersFromStaticCSVOperator,
+    AddMarkersFromSVGOperator,
     AddMarkersFromZippedCSVOperator,
     AppendFormationToStoryboardOperator,
     ApplyColorsToSelectedDronesOperator,
@@ -205,6 +206,7 @@ operators = (
     LandOperator,
     ReturnToHomeOperator,
     AddMarkersFromStaticCSVOperator,
+    AddMarkersFromSVGOperator,
     AddMarkersFromZippedCSVOperator,
     AddMarkersFromQRCodeOperator,
     RefreshFileFormatsOperator,

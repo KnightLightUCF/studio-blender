@@ -1,4 +1,5 @@
 import bpy
+import json
 
 from bpy.props import (
     BoolProperty,
@@ -195,6 +196,20 @@ class StoryboardEntry(PropertyGroup):
         ),
     )
 
+    # mapping is stored as a string so we don't need to maintain a separate
+    # Blender collection as it would not be efficient
+
+    mapping = StringProperty(
+        name="Mapping",
+        description=(
+            "Mapping where the i-th element is the index of the drone that "
+            "marker i was matched to in the storyboard entry, or -1 if the "
+            "marker is unmatched."
+        ),
+        default="",
+        options={"HIDDEN"},
+    )
+
     #: Sorting key for storyboard entries
     sort_key = attrgetter("frame_start", "frame_end")
 
@@ -258,7 +273,7 @@ class StoryboardEntry(PropertyGroup):
 
     @property
     def frame_end(self) -> int:
-        """Returns the index of the last frame that is covered by the storyboard."""
+        """Returns the index of the last (open ended) frame of the storyboard entry."""
         return self.frame_start + self.duration
 
     @property
@@ -289,6 +304,21 @@ class StoryboardEntry(PropertyGroup):
 
         return result
 
+    def get_mapping(self) -> Optional[List[int]]:
+        """Returns the mapping of the markers in the storyboard entry to drone
+        indices, or ``None`` if there is no mapping yet.
+        """
+        encoded_mapping = self.mapping.strip()
+        if (
+            not encoded_mapping
+            or len(encoded_mapping) < 2
+            or encoded_mapping[0] != "["
+            or encoded_mapping[-1] != "]"
+        ):
+            return None
+        else:
+            return json.loads(encoded_mapping)
+
     def remove_active_schedule_override_entry(self) -> None:
         """Removes the active schedule override entry from the collection and
         adjusts the active entry index as needed.
@@ -302,6 +332,20 @@ class StoryboardEntry(PropertyGroup):
         self.active_schedule_override_entry_index = min(
             max(0, index), len(self.schedule_overrides)
         )
+
+    def update_mapping(self, mapping: Optional[List[int]]) -> None:
+        """Updates the mapping of the markers in the storyboard entry to drone
+        indices.
+
+        Arguments:
+            mapping: mapping where the i-th item contains the index of the drone
+                that the i-th marker was mapped to, or -1 if the marker is
+                 unmapped. You can also pass ``None`` to clear the entire mapping.
+        """
+        if mapping is None:
+            self.mapping = ""
+        else:
+            self.mapping = json.dumps(mapping)
 
 
 class Storyboard(PropertyGroup, ListMixin):
@@ -473,7 +517,7 @@ class Storyboard(PropertyGroup, ListMixin):
 
     @property
     def frame_end(self) -> int:
-        """Returns the index of the last frame that is covered by the storyboard."""
+        """Returns the index of the last (open ended) frame of the storyboard."""
         return (
             max(entry.frame_end for entry in self.entries)
             if self.entries
@@ -515,7 +559,7 @@ class Storyboard(PropertyGroup, ListMixin):
         frame.
 
         Returns:
-            the index of the storyboard entry containing the given frame, or
+            the index of the storyboard entry closest after the given frame, or
             -1 if the current frame is after the end of the storyboard
         """
         best_distance, closest = float("inf"), -1
@@ -527,6 +571,43 @@ class Storyboard(PropertyGroup, ListMixin):
                     closest = index
 
         return closest
+
+    def get_index_of_entry_before_frame(self, frame: int) -> int:
+        """Returns the index of the storyboard entry that comes before the given
+        frame.
+
+        Returns:
+            the index of the storyboard entry closest before the given frame, or
+            -1 if the current frame is before the start of the storyboard
+        """
+        best_distance, closest = float("inf"), -1
+        for index, entry in enumerate(self.entries):
+            # note that entries are open ended from the right,
+            # so we allow equality below as well
+            if entry.frame_end <= frame:
+                diff = frame - entry.frame_end
+                if diff < best_distance:
+                    best_distance = diff
+                    closest = index
+
+        return closest
+
+    def get_mapping_at_frame(self, frame: int):
+        """Returns the mapping of drones at a given frame based on mappings
+        stored in formations.
+
+        Returns:
+            The mapping between drones and the formation at the given frame.
+        """
+        index = self.get_index_of_entry_containing_frame(frame)
+        if index >= 0:
+            return self.entries[index].get_mapping()
+
+        index = self.get_index_of_entry_before_frame(frame)
+        if index >= 0:
+            return self.entries[index].get_mapping()
+
+        return None
 
     def get_formation_status_at_frame(self, frame: int) -> str:
         """Returns the name of the storyboard entry containing the given frame
@@ -573,7 +654,10 @@ class Storyboard(PropertyGroup, ListMixin):
 
         index = self.get_index_of_entry_after_frame(frame)
         if index > 0:
-            return self.entries[index - 1].frame_end, self.entries[index].frame_start
+            return (
+                self.entries[index - 1].frame_end,
+                self.entries[index].frame_start,
+            )
         else:
             return None
 

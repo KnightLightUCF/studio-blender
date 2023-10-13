@@ -56,6 +56,8 @@ def update_light_effects(scene, depsgraph):
     frame = scene.frame_current
     drones = None
 
+    mapping = scene.skybrush.storyboard.get_mapping_at_frame(frame)
+
     if _last_frame != frame:
         # Frame changed, clear the base color cache
         _last_frame = frame
@@ -84,7 +86,11 @@ def update_light_effects(scene, depsgraph):
             changed = True
 
         effect.apply_on_colors(
-            colors, positions=positions, frame=frame, random_seq=random_seq
+            colors,
+            positions=positions,
+            mapping=mapping,
+            frame=frame,
+            random_seq=random_seq,
         )
 
     # If we haven't changed anything, _but_ this is because we have recently

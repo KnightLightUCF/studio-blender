@@ -1,3 +1,4 @@
+import bpy
 from bpy.types import Panel
 
 from sbstudio.plugin.model.light_effects import (
@@ -66,9 +67,28 @@ class LightEffectsPanel(Panel):
 
         entry = light_effects.active_entry
         if entry is not None:
+            layout.prop(entry, "type")
+
             if entry.texture:
-                layout.template_color_ramp(entry.texture, "color_ramp")
-                layout.separator()
+                if entry.type == "COLOR_RAMP":
+                    row = layout.box()
+                    row.template_color_ramp(entry.texture, "color_ramp")
+                elif entry.type == "IMAGE":
+                    row = layout.row()
+
+                    col = row.column()
+                    col.prop_search(entry.texture, "image", bpy.data, "images", text="")
+
+                    col = row.column(align=True)
+                    col.operator("image.open", icon="FILE_FOLDER", text="")
+                else:
+                    row = layout.box()
+                    row.alert = True
+                    row.label(
+                        text="Invalid light effect type",
+                        icon="ERROR",
+                    )
+                    layout.separator()
 
             col = layout.column()
             col.prop(entry, "frame_start")
@@ -82,6 +102,10 @@ class LightEffectsPanel(Panel):
             col.prop(entry, "output")
             if output_type_supports_mapping_mode(entry.output):
                 col.prop(entry, "output_mapping_mode")
+            if entry.type == "IMAGE":
+                col.prop(entry, "output_y")
+                if output_type_supports_mapping_mode(entry.output_y):
+                    col.prop(entry, "output_mapping_mode_y")
             col.prop(entry, "target")
             col.prop(entry, "blend_mode")
             col.prop(entry, "influence", slider=True)

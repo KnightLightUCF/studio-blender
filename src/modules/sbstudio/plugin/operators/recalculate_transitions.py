@@ -468,6 +468,9 @@ def update_transition_for_storyboard_entry(
         num_targets=num_markers,
     )
 
+    # Store mapping in Blender-compatible format for later use
+    entry.update_mapping(mapping)
+
     # Calculate how many drones will participate in the transition
     num_drones_transitioning = sum(
         1 for target_index in mapping if target_index is not None
